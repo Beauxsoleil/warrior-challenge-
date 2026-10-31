@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env*
+!.env.example
+*-debug.log
+playwright-report/
+test-results/
+.emulator-data/

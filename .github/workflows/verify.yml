@@ -1,0 +1,28 @@
+name: Practice verification
+on:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci
+      - run: npm run verify
+      - run: npm run test:rules
+      - run: npx playwright install --with-deps chromium
+      - run: npx firebase emulators:exec --only auth,firestore --project demo-warrior-challenge "npm run seed:emulator && npx playwright test --project=chromium"
