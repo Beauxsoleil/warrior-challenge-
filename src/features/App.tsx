@@ -7,7 +7,13 @@ import {
 } from "firebase/auth";
 import { collection, doc, onSnapshot, query, where } from "firebase/firestore";
 import { z } from "zod";
-import { auth, db, competitionId, remoteFor } from "../firebase/client";
+import {
+  auth,
+  db,
+  competitionId,
+  remoteFor,
+  storageDatabaseName,
+} from "../firebase/client";
 import {
   clientOperation,
   operationSchema,
@@ -75,7 +81,7 @@ export function App() {
   useEffect(() => {
     let alive = true;
     let local: LocalStore | undefined;
-    LocalStore.open()
+    LocalStore.open(storageDatabaseName)
       .then(async (s) => {
         local = s;
         await s.deviceId();
@@ -107,7 +113,7 @@ export function App() {
   useEffect(() => {
     if (!user) return;
     const unsubscribeMember = onSnapshot(
-      doc(db, "competitions", competitionId, "members", user.uid),
+      doc(db, "warriorChallenges", competitionId, "members", user.uid),
       (snapshot) => {
         try {
           const m = memberSchema.parse(snapshot.data());
@@ -125,7 +131,7 @@ export function App() {
       },
     );
     const unsubscribeTeams = onSnapshot(
-      collection(db, "competitions", competitionId, "teams"),
+      collection(db, "warriorChallenges", competitionId, "teams"),
       (s) => {
         try {
           setTeams(
@@ -140,7 +146,7 @@ export function App() {
     );
     const unsubscribeJournal = onSnapshot(
       query(
-        collection(db, "competitions", competitionId, "journal"),
+        collection(db, "warriorChallenges", competitionId, "journal"),
         where("eventId", "==", "grenade"),
       ),
       { includeMetadataChanges: true },
@@ -160,7 +166,7 @@ export function App() {
       (e) => setMessage("Journal unavailable: " + String(e)),
     );
     const unsubscribeEvent = onSnapshot(
-      doc(db, "competitions", competitionId, "events", "grenade"),
+      doc(db, "warriorChallenges", competitionId, "events", "grenade"),
       (snapshot) => {
         const e = snapshot.data();
         setEventOpen(

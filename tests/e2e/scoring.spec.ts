@@ -20,10 +20,10 @@ async function localRows(page: Page) {
       /* @vite-ignore */ storePath
     )) as typeof import("../../src/persistence/store");
     const clientPath = "/src/firebase/client.ts";
-    const { auth } = (await import(
+    const { auth, storageDatabaseName } = (await import(
       /* @vite-ignore */ clientPath
     )) as typeof import("../../src/firebase/client");
-    const s = await LocalStore.open();
+    const s = await LocalStore.open(storageDatabaseName);
     try {
       return await s.list(namespace("practice", auth.currentUser!.uid));
     } finally {
@@ -180,7 +180,7 @@ test("rejected intent survives reload, export and account switching", async ({
   });
   await env.withSecurityRulesDisabled((ctx) =>
     setDoc(
-      doc(ctx.firestore(), "competitions/practice/events/grenade"),
+      doc(ctx.firestore(), "warriorChallenges/practice/events/grenade"),
       { state: "locked" },
       { merge: true },
     ),

@@ -1,68 +1,175 @@
 rules_version = '2';
+// Shared PIBASE + Warrior Challenge policy. Bootstrap PIBASE access documents FIRST.
+// Canonical file: security/muse/firestore.rules. Root mirror must stay identical.
+// Never put passwords, tokens, or service-account keys in this repository.
 service cloud.firestore {
   match /databases/{database}/documents {
-    function member(c) { return get(/databases/$(database)/documents/competitions/$(c)/members/$(request.auth.uid)).data; }
-    function active(c) { return request.auth != null && member(c).active == true; }
-    function admin(c) { return active(c) && member(c).role == 'admin'; }
-    function station(c, e) { return active(c) && (admin(c) || e in member(c).eventIds); }
-    function safeId(s) { return s is string && s.matches('^[A-Za-z0-9_-]{1,80}$'); }
-    function parent(c, p) { return get(/databases/$(database)/documents/competitions/$(c)/journal/$(p)).data; }
-    function sameParent(c, d, p) {
-      let prior = parent(c,p);
-      return safeId(p) && p != d.opId && prior.competitionId == c
+    function access() {
+      return get(/databases/$(database)/documents/access/$(request.auth.uid)).data;
+    }
+    function enabled() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/access/$(request.auth.uid))
+        && access().get('enabled', false) == true;
+    }
+    function owner() {
+      return enabled() && access().get('role', '') == 'owner'
+        && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+    function assistant() {
+      return enabled() && access().get('role', '') == 'assistant'
+        && request.auth.token.firebase.sign_in_provider == 'password';
+    }
+    function reader() {
+      return owner() || (assistant() && access().get('read', false) == true)
+        || (enabled() && access().get('role', '') == 'kiosk');
+    }
+    function writer() {
+      return owner() || (assistant() && access().get('read', false) == true
+        && access().get('write', false) == true);
+    }
+    function attributed() {
+      return request.resource.data.get('updatedBy', '') == request.auth.uid
+        && request.resource.data.get('updatedAt', null) == request.time;
+    }
+    function nonempty(value) {
+      return value is string && value.size() > 0;
+    }
+    function validApplicant() {
+      let d = request.resource.data;
+      return nonempty(d.get('name', ''))
+        && (d.get('age', null) == null || d.age is int)
+        && (d.get('dependents', null) == null || d.dependents is int)
+        && (d.get('phone', null) == null || d.phone is string)
+        && (d.get('email', null) == null || d.email is string)
+        && (d.get('statusStage', null) == null || d.statusStage is string);
+    }
+    function active(d) {
+      return d.get('archived', false) != true
+        && d.get('archiveFolder', null) in [null, ''];
+    }
+    // Only console/Admin provisioning may change roles or the revocation switch.
+    match /access/{uid} {
+      allow read, write: if false;
+    }
+    match /applicants/{id} {
+      allow read: if reader();
+      allow create: if writer() && validApplicant()
+        && (owner() || (attributed() && active(request.resource.data)));
+      allow update: if writer() && validApplicant()
+        && (owner() || (attributed() && active(resource.data)
+          && active(request.resource.data)
+          && !request.resource.data.diff(resource.data).affectedKeys()
+            .hasAny(['archived', 'archiveFolder', 'archivedAt', 'archivedFiscalYear'])));
+      allow delete: if false;
+      match /notes/{noteId} {
+        allow read: if reader();
+        allow create: if writer() && nonempty(request.resource.data.get('text', ''))
+          && (owner() || (attributed()
+            && request.resource.data.get('createdAt', null) == request.time
+            && active(get(/databases/$(database)/documents/applicants/$(id)).data)));
+        // Assistant notes are append-only; existing history cannot be rewritten.
+        allow update: if owner() && nonempty(request.resource.data.get('text', ''));
+        allow delete: if false;
+      }
+    }
+    match /events/{id} {
+      allow read: if reader();
+      allow create, update: if writer()
+        && nonempty(request.resource.data.get('name', ''))
+        && (request.resource.data.get('date', null) == null || request.resource.data.date is string)
+        && (owner() || attributed());
+      allow delete: if false;
+    }
+    match /eventResults/{id} {
+      allow read: if reader();
+      allow create, update: if writer()
+        && nonempty(request.resource.data.get('summary', ''))
+        && request.resource.data.get('start', null) is string
+        && (owner() || attributed());
+      allow delete: if false;
+    }
+    match /settings/mission {
+      allow read: if reader();
+      allow create, update: if owner();
+      allow delete: if false;
+    }
+    // Daily reminder state is readable by enrolled devices; only the phone
+    // owner may acknowledge it. Assistants cannot dismiss the owner's warning.
+    match /settings/{settingId} {
+      allow read: if settingId.matches('inputAppointments-[0-9]{4}-[0-9]{2}-[0-9]{2}') && reader();
+      allow create, update: if settingId.matches('inputAppointments-[0-9]{4}-[0-9]{2}-[0-9]{2}')
+        && owner()
+        && request.resource.data.keys().hasOnly(['dismissed'])
+        && request.resource.data.dismissed == true;
+      allow delete: if false;
+    }
+    // Unknown collections and settings documents have no allow rule.
+
+    // Warrior Challenge: independent membership, no access/ role inheritance.
+    function wcMember(c) { return get(/databases/$(database)/documents/warriorChallenges/$(c)/members/$(request.auth.uid)).data; }
+    function wcActive(c) { return request.auth != null && exists(/databases/$(database)/documents/warriorChallenges/$(c)/members/$(request.auth.uid)) && wcMember(c).active == true; }
+    function wcAdmin(c) { return wcActive(c) && wcMember(c).role == 'admin'; }
+    function wcStation(c, e) { return wcActive(c) && (wcMember(c).role == 'admin' || e in wcMember(c).eventIds); }
+    function wcSafeId(s) { return s is string && s.matches('^[A-Za-z0-9_-]{1,80}$'); }
+    function wcParent(c, p) { return get(/databases/$(database)/documents/warriorChallenges/$(c)/journal/$(p)).data; }
+    function wcSameParent(c, d, p) {
+      let prior = wcParent(c,p);
+      return wcSafeId(p) && p != d.opId && prior.competitionId == c
         && prior.eventId == d.eventId && prior.teamId == d.teamId
         && prior.schemaVersion == 1 && prior.rulesVersion == d.rulesVersion
         && prior.kind in ['result.submit','result.correct','result.void','result.resolve'];
     }
-    function parents(c,d) {
+    function wcParents(c,d) {
       return d.parentIds is list && d.parentIds.size() <= 4
         && d.parentIds.toSet().size() == d.parentIds.size()
-        && (d.parentIds.size() < 1 || sameParent(c,d,d.parentIds[0]))
-        && (d.parentIds.size() < 2 || sameParent(c,d,d.parentIds[1]))
-        && (d.parentIds.size() < 3 || sameParent(c,d,d.parentIds[2]))
-        && (d.parentIds.size() < 4 || sameParent(c,d,d.parentIds[3]));
+        && (d.parentIds.size() < 1 || wcSameParent(c,d,d.parentIds[0]))
+        && (d.parentIds.size() < 2 || wcSameParent(c,d,d.parentIds[1]))
+        && (d.parentIds.size() < 3 || wcSameParent(c,d,d.parentIds[2]))
+        && (d.parentIds.size() < 4 || wcSameParent(c,d,d.parentIds[3]));
     }
-    function validKind(c,d) {
+    function wcValidKind(c,d) {
+      let official = wcAdmin(c);
       return (d.kind == 'result.submit' && d.parentIds.size() == 0)
         || (d.kind == 'result.void' && d.parentIds.size() == 1
-            && (admin(c) || (parent(c,d.parentIds[0]).actorUid == request.auth.uid && parent(c,d.parentIds[0]).kind != 'result.void')))
+            && (official || (wcParent(c,d.parentIds[0]).actorUid == request.auth.uid && wcParent(c,d.parentIds[0]).kind != 'result.void')))
         || (d.kind == 'result.correct' && d.parentIds.size() == 1
-            && (admin(c) || (parent(c,d.parentIds[0]).kind == 'result.void' && parent(c,d.parentIds[0]).actorUid == request.auth.uid)))
-        || (d.kind == 'result.resolve' && d.parentIds.size() >= 2 && admin(c));
+            && (official || (wcParent(c,d.parentIds[0]).kind == 'result.void' && wcParent(c,d.parentIds[0]).actorUid == request.auth.uid)))
+        || (d.kind == 'result.resolve' && d.parentIds.size() >= 2 && official);
     }
-    function payload(d,e) {
+    function wcPayload(d,e) {
       return d.payload is map && d.payload.reason is string && d.payload.reason.size() <= 500
         && (d.kind == 'result.submit' || d.payload.reason.size() >= 1)
         && ((d.kind == 'result.void' && d.payload.keys().hasOnly(['reason']) && d.payload.keys().hasAll(['reason']))
           || (d.kind != 'result.void' && d.payload.keys().hasOnly(['value','reason']) && d.payload.keys().hasAll(['value','reason'])
             && d.payload.value is int && d.payload.value >= e.minimum && d.payload.value <= e.maximum));
     }
-    function valid(c,op,d) {
-      let config = get(/databases/$(database)/documents/competitions/$(c)).data;
-      let event = get(/databases/$(database)/documents/competitions/$(c)/events/$(d.eventId)).data;
-      let team = get(/databases/$(database)/documents/competitions/$(c)/teams/$(d.teamId)).data;
+    function wcValid(c,op,d) {
+      let config = get(/databases/$(database)/documents/warriorChallenges/$(c)).data;
+      let event = get(/databases/$(database)/documents/warriorChallenges/$(c)/events/$(d.eventId)).data;
+      let team = get(/databases/$(database)/documents/warriorChallenges/$(c)/teams/$(d.teamId)).data;
       return d.keys().hasOnly(['opId','competitionId','eventId','teamId','schemaVersion','rulesVersion','actorUid','deviceId','sessionId','capturedAtClientMs','kind','parentIds','payload','receivedAt'])
         && d.keys().hasAll(['opId','competitionId','eventId','teamId','schemaVersion','rulesVersion','actorUid','deviceId','sessionId','capturedAtClientMs','kind','parentIds','payload','receivedAt'])
-        && safeId(op) && d.opId == op && d.competitionId == c
-        && safeId(d.eventId) && safeId(d.teamId) && safeId(d.deviceId) && safeId(d.sessionId)
+        && wcSafeId(op) && d.opId == op && d.competitionId == c
+        && wcSafeId(d.eventId) && wcSafeId(d.teamId) && wcSafeId(d.deviceId) && wcSafeId(d.sessionId)
         && d.actorUid == request.auth.uid && d.schemaVersion == 1 && d.rulesVersion == 'practice-v1'
         && config.mode == 'practice' && config.rulesVersion == d.rulesVersion
         && team.eligible == true && team.rosterVersion == config.rosterVersion
         && event.kind == 'numeric' && event.minimum == 0 && event.maximum == 100
-        && event.state in ['open','closing'] && station(c,d.eventId)
+        && event.state in ['open','closing'] && wcStation(c,d.eventId)
         && d.capturedAtClientMs is int && d.capturedAtClientMs >= 0 && d.capturedAtClientMs <= 9007199254740991
-        && d.receivedAt == request.time && parents(c,d) && validKind(c,d) && payload(d,event);
+        && d.receivedAt == request.time && wcParents(c,d) && wcValidKind(c,d) && wcPayload(d,event);
     }
-    match /competitions/{c} {
-      allow read: if active(c);
-      match /members/{uid} { allow read: if active(c) && (uid == request.auth.uid || admin(c)); }
-      match /teams/{id} { allow read: if active(c); }
-      match /events/{id} { allow read: if station(c,id); }
+    match /warriorChallenges/{c} {
+      allow read: if wcActive(c);
+      match /members/{uid} { allow read: if wcActive(c) && (uid == request.auth.uid || wcAdmin(c)); }
+      match /teams/{id} { allow read: if wcActive(c); }
+      match /events/{id} { allow read: if wcStation(c,id); }
       match /journal/{op} {
         // Missing-ID reads permit idempotency checks, not enumeration of private data.
-        allow get: if active(c) && (!exists(/databases/$(database)/documents/competitions/$(c)/journal/$(op)) || station(c,resource.data.eventId));
-        allow list: if station(c,resource.data.eventId);
-        allow create: if active(c) && valid(c,op,request.resource.data);
+        allow get: if wcActive(c) && (!exists(/databases/$(database)/documents/warriorChallenges/$(c)/journal/$(op)) || wcStation(c,resource.data.eventId));
+        allow list: if wcStation(c,resource.data.eventId);
+        allow create: if wcActive(c) && wcValid(c,op,request.resource.data);
         allow update, delete: if false;
       }
       // Publication is deliberately closed until M4's atomic protocol is implemented.

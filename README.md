@@ -1,7 +1,8 @@
 # warrior-challenge-
 
 Warrior Challenge: a practice-only first scoring slice, not an event-ready app.
-All fixtures are synthetic. No live Firebase project, deployment or billing.
+All fixtures are synthetic. PIBASE integration is prepared but not deployed;
+default development still uses local emulators. No live data or billing changed.
 
 Implemented: email/password emulator login; assigned numeric station; explicit
 IndexedDB save; immutable journal; retained rejected outbox/export; competing
@@ -12,8 +13,8 @@ competition, timing, Ruck, official controls and public TV remain later mileston
 
 1. Install Node **24.22.1** (see `.nvmrc`) and Java **21+**. Confirm `node -v`
    and `java -version`. The pinned Firebase CLI rejects Java 17.
-2. Run `npm ci`. No credentials or `.env` values are needed. `.env.example`
-   explains the fixed demo target. Never add a real project to this checkpoint.
+2. Run `npm ci`. No credentials or `.env` values are needed for the default demo target.
+   `.env.example` documents the separate, explicitly acknowledged PIBASE build.
 3. Terminal one: `npm run emulators` (Auth 9099, Firestore 8080, loopback only).
 4. Terminal two, from the repo:
    ```sh
@@ -82,3 +83,10 @@ Documentation: [architecture](docs/architecture.md), [contract](docs/data-contra
 [offline/sync](docs/offline-sync.md), [security](docs/security.md),
 [policy](docs/scoring-policy.md), [runbook](docs/runbook.md),
 [backup](docs/backup-restore.md), [status](docs/implementation-status.md).
+
+## Shared PIBASE project
+
+See [PIBASE integration](docs/pibase-integration.md). The prepared live target is
+`pi-base-a3a09`, with data under `warriorChallenges/{competitionId}`. Memberships,
+Auth instance and local outbox are separated from PIBASE recruiting access.
+The combined Rules must be reviewed against live state before activation.

@@ -1,3 +1,25 @@
+# Current follow-up: shared PIBASE integration (2026-10-31)
+
+Branch: feat/pibase-partition, based on the M1 draft branch. Companion PIBASE
+branch: feat/warrior-challenge-partition, based on main
+1a28b17e2f51006a040a4f852f2d2a73460100be.
+
+Prepared target pi-base-a3a09 with warriorChallenges namespace and separate
+memberships, named Auth instance and project-scoped local stores. Combined Rules
+preserve PIBASE strict policy; old permissive root Rules replaced with an exact
+mirror in PIBASE. No production changes, live enrollment inspection or billing
+inspection occurred. See pibase-integration.md for activation prerequisites.
+
+Actual checks so far: npm run verify (10 unit + 7 integration, lint/typecheck/build)
+passed; combined Warrior Rules 9 passed; PIBASE role/isolation tests 15 passed;
+PIBASE shared helpers/PWA/reminder smoke scripts passed. A PIBASE-target build
+also passed without contacting Firebase. Final shared Rules rerun: Warrior 9 passed; PIBASE 15 passed.
+All 5 Chromium browser flows passed against the new namespace (21.5 seconds).
+Both Rules copies and PIBASE root mirror are byte-identical.
+The M1 milestone limitations still apply; this does not make the event ready.
+
+---
+
 # Implementation checkpoint — 2026-10-31
 
 Repository: Beauxsoleil/warrior-challenge-. Branch: feat/m1-durable-scoring.

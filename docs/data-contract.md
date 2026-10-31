@@ -1,3 +1,6 @@
+> Shared-project update: see [PIBASE integration](pibase-integration.md).
+> Warrior paths use `warriorChallenges`; the combined Rules also preserve PIBASE permissions.
+
 # M1 contract (implemented subset)
 
 Runtime source of truth: src/domain/operations.ts; server mirror: firestore.rules.
@@ -19,7 +22,7 @@ trimmed); trusted reviewer assesses meaningfulness. No result patches or totals.
 The resolver accepts result-family operations only; timing/control kinds must
 use separate schemas in future versions. Accepted dependencies must exist.
 
-competitions/practice: mode, rulesVersion, rosterVersion, policyApproval.
+warriorChallenges/practice: mode, rulesVersion, rosterVersion, policyApproval.
 teams/{id}: label, string bib, eligible, rosterVersion.
 events/{id}: name, numeric kind, minimum=0, maximum=100, state.
 members/{uid}: active, scorer/admin role, eventIds.

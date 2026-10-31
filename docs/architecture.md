@@ -23,3 +23,10 @@ The public board must never authenticate as a private workstation.
 No database substitution: owner permits considering alternatives, but no
 existing infrastructure or measured advantage warrants changing the specified
 Spark architecture. No billing, Functions, Cloud Run, Storage or App Hosting.
+
+## Subsequent owner-selected project integration
+
+The owner selected existing PIBASE project `pi-base-a3a09`.
+[Integration decision](pibase-integration.md) supersedes the earlier unselected
+project note. Stack remains Firebase; sharing is a namespace/access-policy change,
+not a database replacement. No live deployment has occurred.
