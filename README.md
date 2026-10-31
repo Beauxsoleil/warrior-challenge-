@@ -90,3 +90,9 @@ See [PIBASE integration](docs/pibase-integration.md). The prepared live target i
 `pi-base-a3a09`, with data under `warriorChallenges/{competitionId}`. Memberships,
 Auth instance and local outbox are separated from PIBASE recruiting access.
 The combined Rules must be reviewed against live state before activation.
+
+## Existing GitHub Pages site
+
+See [Pages build and publication](docs/github-pages.md). Use `npm run build:pages`
+for this repository URL; do not publish raw source. Publication is manual and
+requires owner approval.
