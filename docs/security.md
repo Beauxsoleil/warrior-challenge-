@@ -1,3 +1,6 @@
+> Shared-project update: see [PIBASE integration](pibase-integration.md).
+> Warrior paths use `warriorChallenges`; the combined Rules also preserve PIBASE permissions.
+
 # M1 security boundary
 
 Deny by default. Rules emulator suite exercises real SDK calls, not UI mocks.

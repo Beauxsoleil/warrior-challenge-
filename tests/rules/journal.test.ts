@@ -45,7 +45,7 @@ beforeEach(async () => {
 });
 const db = (uid = "scorer-a") => env.authenticatedContext(uid).firestore();
 const ref = (id: string, uid = "scorer-a") =>
-  doc(db(uid), "competitions/practice/journal/" + id);
+  doc(db(uid), "warriorChallenges/practice/journal/" + id);
 const write = (o: Operation, uid = o.actorUid) =>
   setDoc(ref(o.opId, uid), { ...o, receivedAt: serverTimestamp() });
 async function privileged(path: string, data: object) {
@@ -60,13 +60,13 @@ describe("real Rules authorization", () => {
     await assertSucceeds(
       getDocs(
         query(
-          collection(db(), "competitions/practice/journal"),
+          collection(db(), "warriorChallenges/practice/journal"),
           where("eventId", "==", "grenade"),
         ),
       ),
     );
     await assertFails(
-      getDocs(collection(db(), "competitions/practice/journal")),
+      getDocs(collection(db(), "warriorChallenges/practice/journal")),
     );
     await assertFails(
       updateDoc(ref("op1"), { payload: { value: 99, reason: "" } }),
@@ -77,18 +77,21 @@ describe("real Rules authorization", () => {
   it("denies unauthenticated private reads, role escalation and public writes", async () => {
     await assertFails(
       getDoc(
-        doc(env.unauthenticatedContext().firestore(), "competitions/practice"),
+        doc(
+          env.unauthenticatedContext().firestore(),
+          "warriorChallenges/practice",
+        ),
       ),
     );
     await assertFails(
-      setDoc(doc(db(), "competitions/practice/members/scorer-a"), {
+      setDoc(doc(db(), "warriorChallenges/practice/members/scorer-a"), {
         role: "admin",
         active: true,
         eventIds: ["grenade"],
       }),
     );
     await assertFails(
-      setDoc(doc(db("admin"), "competitions/practice/public/standings"), {
+      setDoc(doc(db("admin"), "warriorChallenges/practice/public/standings"), {
         points: 5,
       }),
     );
@@ -99,7 +102,7 @@ describe("real Rules authorization", () => {
       write(op("forged", { actorUid: "scorer-b" }), "scorer-a"),
     );
     await assertFails(write(op("unknown", { teamId: "fake" })));
-    await privileged("competitions/practice/members/scorer-a", {
+    await privileged("warriorChallenges/practice/members/scorer-a", {
       active: false,
     });
     await assertFails(write(op()));
@@ -203,7 +206,7 @@ describe("real Rules authorization", () => {
       await env.withSecurityRulesDisabled(async (ctx) => {
         for (const id of ["a", "b", "r"])
           await deleteDoc(
-            doc(ctx.firestore(), "competitions/practice/journal/" + id),
+            doc(ctx.firestore(), "warriorChallenges/practice/journal/" + id),
           );
       });
       const operations = order.map((id) =>
@@ -234,21 +237,23 @@ describe("real Rules authorization", () => {
     );
   });
   it("allows backlog intake while closing, denies locked and official competitions", async () => {
-    await privileged("competitions/practice/events/grenade", {
+    await privileged("warriorChallenges/practice/events/grenade", {
       state: "closing",
     });
     await assertSucceeds(write(op("closing")));
-    await privileged("competitions/practice/events/grenade", {
+    await privileged("warriorChallenges/practice/events/grenade", {
       state: "locked",
     });
     await assertFails(write(op("locked")));
-    await privileged("competitions/practice/events/grenade", { state: "open" });
-    await privileged("competitions/practice", { mode: "official" });
+    await privileged("warriorChallenges/practice/events/grenade", {
+      state: "open",
+    });
+    await privileged("warriorChallenges/practice", { mode: "official" });
     await assertFails(write(op("official")));
   });
   it("online create transaction reconciles duplicate retries without updates", async () => {
     const database = db();
-    const target = doc(database, "competitions/practice/journal/once");
+    const target = doc(database, "warriorChallenges/practice/journal/once");
     const save = () =>
       runTransaction(database, async (tx) => {
         const existing = await tx.get(target);

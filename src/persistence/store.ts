@@ -24,7 +24,7 @@ export const namespace = (competition: string, uid: string) =>
   JSON.stringify([competition, uid]);
 export class LocalStore {
   constructor(readonly db: IDBPDatabase<StoreSchema>) {}
-  static async open(name = "warrior-challenge-v1") {
+  static async open(name: string) {
     const db = await openDB<StoreSchema>(name, 1, {
       upgrade(db) {
         db.createObjectStore("outbox", { keyPath: "key" }).createIndex(
@@ -85,6 +85,7 @@ export class LocalStore {
       {
         schemaVersion: 1,
         kind: "private-device-outbox",
+        storageDatabase: this.db.name,
         exportedAt: new Date().toISOString(),
         limitation: "Only this browser and actor; not a complete event backup.",
         entries: await this.list(ns),

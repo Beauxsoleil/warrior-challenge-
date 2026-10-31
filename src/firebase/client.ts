@@ -16,30 +16,26 @@ import {
 } from "firebase/firestore";
 import { canonical, clientOperation } from "../domain/operations";
 import type { Remote } from "../sync/uploader";
-// Deliberate M1 safety gate. No production project configuration is accepted.
-if (!["localhost", "127.0.0.1"].includes(location.hostname))
-  throw new Error(
-    "M1 requires a local browser with loopback emulators. Remote preview is not connected.",
-  );
-export const app = initializeApp({
-  projectId: "demo-warrior-challenge",
-  apiKey: "demo-not-a-secret",
-  authDomain: "localhost",
-});
+import { selectTarget, databaseNameFor } from "./target";
+const target = selectTarget(import.meta.env, location.hostname);
+export const storageDatabaseName = databaseNameFor(target.config.projectId);
+// A named app avoids reusing PIBASE's default Auth/cache instance on a shared origin.
+export const app = initializeApp(target.config, "warrior-challenge");
 export const auth = initializeAuth(app, {
   persistence: indexedDBLocalPersistence,
 });
-connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
+if (target.emulator)
+  connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
 export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager(),
   }),
 });
-connectFirestoreEmulator(db, "127.0.0.1", 8080);
+if (target.emulator) connectFirestoreEmulator(db, "127.0.0.1", 8080);
 export const competitionId = "practice";
 export function remoteFor(uid: string): Remote {
   const ref = (id: string) =>
-    doc(db, "competitions", competitionId, "journal", id);
+    doc(db, "warriorChallenges", competitionId, "journal", id);
   return {
     async read(id) {
       if (auth.currentUser?.uid !== uid)
