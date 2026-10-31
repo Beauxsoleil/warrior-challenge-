@@ -118,3 +118,19 @@ the exact six-team fixture and terminal-vs-withheld semantics, then M2 audited
 approval/freeze/closing/reopening. First harden local recovery for lost account
 access and run WebKit on a host with its dependencies. Do not jump to timer/TV
 polish before these controls. Keep production and official readiness blocked.
+
+## 2026-10-31 — Pages repair checkpoint
+
+Observed live HTML serving raw /src/main.tsx from repository root. Added explicit
+PIBASE Pages build, repository asset base, manual-only dist deployment workflow,
+and a production-bundle Chromium smoke test in PR verification.
+
+Executed `npm run test:pages`: 1 passed (login render, local database readiness,
+reload, no page/HTTP errors). External requests were blocked; no live data touched.
+Deployment and live login remain pending. See docs/github-pages.md for the required
+Pages source setting and owner-authorized publication steps. No Rules changes.
+
+Executed `npm run verify`: lint, strict typecheck, 10 unit tests, 7 local-store/sync
+integration tests and standard build passed. Existing large-chunk advisory remains.
+Rules and emulator end-to-end tests were not rerun locally for this frontend
+deployment-only change; CI retains both gates.

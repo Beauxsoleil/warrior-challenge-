@@ -14,7 +14,9 @@
     "build": "tsc --noEmit && vite build",
     "verify": "npm run lint && npm run typecheck && npm run test:unit && npm run test:integration && npm run build",
     "emulators": "firebase emulators:start --only auth,firestore --project demo-warrior-challenge",
-    "seed:emulator": "node --experimental-strip-types scripts/seed.ts"
+    "seed:emulator": "node --experimental-strip-types scripts/seed.ts",
+    "build:pages": "tsc --noEmit && node --experimental-strip-types scripts/build-pages.ts",
+    "test:pages": "npm run build:pages && playwright test --config playwright.pages.config.ts"
   },
   "repository": {
     "type": "git",
